@@ -1,52 +1,47 @@
-# DL_Project_Team25
-# Project: Data-Driven Feature Tracking for Aerial Imagery
+# Project Proposal: Noise Robustness Testing for Data-Driven Feature Tracking in Event Cameras
 
 ## Objective
-This project applies a data-driven feature tracking method, originally designed for event cameras, to aerial imagery. The goal is to extract features and build feature tracks over a sequence of images, using these tracks to estimate 3D camera poses via a Structure-from-Motion (SfM) algorithm. The quality of the recovered camera poses will be evaluated for accuracy and robustness.
+The objective of this project is to evaluate and enhance the robustness of a data-driven feature tracking model for event cameras by simulating real-world noise. This will be achieved by introducing noise and transformations to event data, implementing a noise-tolerant loss function, and rigorously testing the model's stability under noisy conditions.
 
 ## Goals
-1. Develop a robust feature tracking pipeline for aerial imagery using event cameras.
-2. Build feature tracks from an aerial image sequence and integrate them with an SfM algorithm to estimate 3D camera poses.
-3. Evaluate the accuracy and reliability of the reconstructed camera poses.
+1. To simulate real-world variations by applying affine transformations and noise to event data.
+2. To incorporate a truncated loss function to manage errors induced by noise during model training.
+3. To evaluate model performance with metrics that capture feature tracking stability, especially under different levels of noise.
 
 ## Dataset
-- **Aerial Imagery**: Provided dataset includes imagery captured using both event cameras and RGB cameras.
-- **Preprocessing**: Event data will be converted into frame-like structures for compatibility with feature tracking, and RGB frames will be synchronized with event frames for consistency.
+- **Event Camera Dataset (EC):** Includes both events and frames, providing ground truth camera poses and suitable for initial testing.
+- **Event-aided Direct Sparse Odometry (EDS) Dataset:** Contains higher resolution event data and challenging scenarios that will help assess noise robustness.
 
-## Project Steps
+## Steps
 
-### Step 1: Feature Extraction from Aerial Imagery
-   - Use the data-driven feature tracking method based on Messikommer et al.'s paper, *Data-Driven Feature Tracking for Event Cameras* (CVPR 2023).
-   - Adapt the event-based feature tracking approach to work with aerial imagery, leveraging high temporal resolution of event data for improved tracking.
+1. **Data Preparation and Noise Simulation**
+   - Acquire the EC and EDS datasets, and preprocess for model compatibility.
+   - Introduce varying degrees of noise into event streams, simulating real-world conditions (e.g., Gaussian noise).
+   - Apply affine transformations, including random rotations, translations, and scalings, to introduce additional variability.
 
-### Step 2: Dataset Preparation
-   - **Data Synchronization**: Align event camera data with RGB frames based on timestamps.
-   - **Data Preprocessing**: Convert event data into frames and normalize RGB data for consistency across the dataset.
+2. **Model Training with Noise Robustness Techniques**
+   - Train the baseline feature tracking model on augmented data.
+   - Implement a truncated loss function that disregards large errors, effectively limiting noise impact on training.
+   - Fine-tune the model using noise-augmented data to optimize for noise robustness.
 
-### Step 3: Feature Tracking Across Image Sequence
-   - Track features across the entire sequence of aerial images.
-   - Use the frame attention module from Messikommer et al.'s method to maintain consistency of feature tracks within each frame.
+3. **Evaluation Strategy**
+   - Measure tracking performance using **Feature Age** (duration a feature can be reliably tracked) and **Expected Feature Age** (tracks stable across varying conditions).
+   - Test the model under increasing noise levels and evaluate performance at each level to establish robustness thresholds.
+   - Compare results with a baseline model without noise robustness features to demonstrate improvement.
 
-### Step 4: Generate Feature Tracks for SfM
-   - Use the tracked features to create inputs for an SfM algorithm.
-   - Ensure that feature tracks are accurate and consistent across the sequence for reliable 3D pose estimation.
+## Evaluation Metrics
+- **Feature Age**: Measures how long the model can reliably track features in a noisy environment.
+- **Expected Feature Age**: Evaluates overall stability, factoring in the percentage of features that remain stable under noisy conditions.
+- **Error Tolerance Metrics**: Track error rates under varying noise conditions to quantify improvements from the truncated loss function.
 
-### Step 5: 3D Pose Estimation with SfM
-   - Apply an SfM algorithm (e.g., COLMAP or BA4S) to estimate 3D camera poses using the feature tracks.
-   - Feed the feature tracks into SfM to ensure robustness in the estimated poses.
+## Expected Deliverables
+1. **Augmented Event Dataset**: Including noise variations and transformations for reproducible testing.
+2. **Trained Model**: A noise-robust feature tracking model for event cameras.
+3. **Evaluation Report**: Detailed report on feature age and expected feature age across noise levels, comparing baseline and noise-robust models.
+4. **Code Documentation**: Documented code for noise augmentation, model training, and evaluation.
 
-### Step 6: Evaluation of Results
-   - Evaluate the quality of the estimated 3D camera poses.
-   - Metrics for evaluation include tracking accuracy, feature track consistency, and robustness across different environmental conditions.
-
-## Installation
-
-### Prerequisites
-- Python 3.8+
-- Libraries: `OpenCV`, `numpy`, `scipy`, `colmap`
-- Clone this repository and install dependencies:
-
-   ```bash
-   git clone <repo_url>
-   cd project_name
-   pip install -r requirements.txt
+## Tools and Technologies
+- **Programming Language**: Python
+- **Frameworks**: PyTorch for model development, OpenCV for affine transformations and augmentation
+- **Hardware**: NVIDIA GPU (e.g., RTX 3080 or above) for efficient model training
+- **Libraries**: SciPy and NumPy for data manipulation, Matplotlib for visualization, and DVS tools for event camera data handling
