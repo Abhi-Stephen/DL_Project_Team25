@@ -4,9 +4,49 @@ import os
 import hydra
 import pytorch_lightning as pl
 import torch
+import torch.optim as optim
+import torch.nn as nn
 
 from utils.callbacks import IncreaseSequenceLengthCallback
 from utils.utils import *
+from torch.utils.data import DataLoader
+from dataset import NoisyImageDataset
+from models.correlation3_unscaled import TrackerNetC
+
+images_dir = "D:\DL_Dataset_Fall_2024\Town 01\dvs\aligned_timestamps_data_dl_town01_day\Noiseimages"      # Provide actual path
+events_dir = "D:\DL_Dataset_Fall_2024\Town 01\dvs\aligned_timestamps_data_dl_town01_day\Noiseevents"      # Provide actual path
+noise_type = "gaussian"
+gaussian_std = 0.02
+batch_size = 8
+epochs = 10
+
+dataset = NoisyImageDataset(
+    images_dir=images_dir,
+    events_dir=events_dir,
+    noise_type=noise_type,
+    gaussian_std=gaussian_std
+)
+
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+# Adjust input_channels if needed based on dataset (e.g. if RGB images: 3 for target + 3 for events = 6)
+model = TrackerNetC(input_channels=6, noise_training=True)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)
+criterion = nn.MSELoss()
+
+model.train()
+for epoch in range(epochs):
+    for i, x in enumerate(dataloader):
+        # Dummy ground truth: In practice, provide real labels
+        ground_truth_y = torch.zeros((x.size(0), 2))
+
+        optimizer.zero_grad()
+        y_pred = model(x)
+        loss = criterion(y_pred, ground_truth_y)
+        loss.backward()
+        optimizer.step()
+
+    print(f"Epoch {epoch}, Loss: {loss.item()}")
 
 logger = logging.getLogger(__name__)
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
