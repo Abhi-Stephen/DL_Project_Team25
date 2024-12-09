@@ -5,8 +5,7 @@ from torch.autograd import Variable
 
 class ConvLSTMCell(nn.Module):
     """
-    Generate a convolutional LSTM cell
-    From: https://github.com/Atcold/pytorch-CortexNet/blob/master/model/ConvLSTMCell.py
+    Generate a convolutional LSTM cell.
     """
 
     def __init__(self, in_channels, hidden_channels, kernel_size):
@@ -29,11 +28,9 @@ class ConvLSTMCell(nn.Module):
         self.prev_state = None
 
     def forward(self, input_):
-        # get batch and spatial sizes
         batch_size = input_.data.size()[0]
         spatial_size = input_.data.size()[2:]
 
-        # generate empty prev_state, if None is provided
         if self.prev_state is None:
             state_size = [batch_size, self.hidden_channels] + list(spatial_size)
             self.prev_state = (
@@ -43,22 +40,15 @@ class ConvLSTMCell(nn.Module):
 
         prev_hidden, prev_cell = self.prev_state
 
-        # data size is [batch, channel, height, width]
         stacked_inputs = torch.cat((input_, prev_hidden), 1)
         gates = self.Gates(stacked_inputs)
-
-        # chunk across channel dimension
         in_gate, remember_gate, out_gate, cell_gate = gates.chunk(4, 1)
 
-        # apply sigmoid non linearity
         in_gate = torch.sigmoid(in_gate)
         remember_gate = torch.sigmoid(remember_gate)
         out_gate = torch.sigmoid(out_gate)
-
-        # apply tanh non linearity
         cell_gate = torch.tanh(cell_gate)
 
-        # compute current cell and hidden state
         cell = (remember_gate * prev_cell) + (in_gate * cell_gate)
         hidden = out_gate * torch.tanh(cell)
 
@@ -79,12 +69,11 @@ class ConvBlock(nn.Module):
         dilation=1,
     ):
         super(ConvBlock, self).__init__()
-        self.modules = []
-
+        self.modules_list = []
         c_in = in_channels
         c_out = out_channels
         for i in range(n_convs):
-            self.modules.append(
+            self.modules_list.append(
                 nn.Conv2d(
                     in_channels=c_in,
                     out_channels=c_out,
@@ -95,12 +84,12 @@ class ConvBlock(nn.Module):
                     dilation=dilation,
                 )
             )
-            self.modules.append(nn.BatchNorm2d(num_features=out_channels))
-            self.modules.append(nn.LeakyReLU(0.1))
+            self.modules_list.append(nn.BatchNorm2d(num_features=out_channels))
+            self.modules_list.append(nn.LeakyReLU(0.1))
             c_in = c_out
 
         if downsample:
-            self.modules.append(
+            self.modules_list.append(
                 nn.Conv2d(
                     in_channels=out_channels,
                     out_channels=out_channels,
@@ -108,10 +97,9 @@ class ConvBlock(nn.Module):
                     stride=2,
                 )
             )
-            self.modules.append(nn.ReLU())
-            # self.modules.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            self.modules_list.append(nn.ReLU())
 
-        self.model = nn.Sequential(*self.modules)
+        self.model = nn.Sequential(*self.modules_list)
         self.init_weights()
 
     def init_weights(self):
