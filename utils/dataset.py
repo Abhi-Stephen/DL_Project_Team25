@@ -10,6 +10,12 @@ from typing import Iterator, Sequence
 
 import cv2
 import yaml
+import os
+import torch
+from torch.utils.data import Dataset
+import numpy as np
+
+from utils.noise import add_gaussian_noise, add_salt_and_pepper_noise
 
 # Visualization for Debugging
 from matplotlib import pyplot as plt
@@ -2225,3 +2231,81 @@ class SubSequenceRandomSampler(Sampler[int]):
 
     def __len__(self) -> int:
         return len(self.indices)
+    
+
+class NoisyImageDataset(Dataset):
+    def __init__(self, images_dir, events_dir, noise_type='gaussian', gaussian_std=0.01, salt_prob=0.01, pepper_prob=0.01, transform=None):
+        """
+        A dataset that loads images and event images, adds noise to them, and returns them as input tensors.
+
+        :param images_dir: Directory containing "clean" images.
+        :param events_dir: Directory containing event images.
+        :param noise_type: Type of noise to add ('gaussian' or 'salt_pepper').
+        :param gaussian_std: Std dev for Gaussian noise.
+        :param salt_prob: Probability of salt noise.
+        :param pepper_prob: Probability of pepper noise.
+        :param transform: Optional transform (e.g., normalization) applied after noise.
+        """
+        self.images_dir = images_dir
+        self.events_dir = events_dir
+        self.image_fnames = sorted([f for f in os.listdir(images_dir) if f.lower().endswith(('png','jpg','jpeg','bmp'))])
+        self.event_fnames = sorted([f for f in os.listdir(events_dir) if f.lower().endswith(('png','jpg','jpeg','bmp'))])
+        self.noise_type = noise_type
+        self.gaussian_std = gaussian_std
+        self.salt_prob = salt_prob
+        self.pepper_prob = pepper_prob
+        self.transform = transform
+
+        if len(self.image_fnames) == 0 or len(self.event_fnames) == 0:
+            raise ValueError("No images found in provided directories.")
+
+    def __len__(self):
+        # Dataset length is the minimum of images and events sets to pair them consistently
+        return min(len(self.image_fnames), len(self.event_fnames))
+
+    def add_noise(self, image):
+        # image: assumed to be np.float32 in range [0,1]
+        if self.noise_type == 'gaussian':
+            return add_gaussian_noise(image, std=self.gaussian_std)
+        elif self.noise_type == 'salt_pepper':
+            return add_salt_and_pepper_noise(image, salt_prob=self.salt_prob, pepper_prob=self.pepper_prob)
+        else:
+            # No noise
+            return image
+
+    def __getitem__(self, idx):
+        img_path = os.path.join(self.images_dir, self.image_fnames[idx])
+        event_path = os.path.join(self.events_dir, self.event_fnames[idx])
+
+        img = cv2.imread(img_path, cv2.IMREAD_COLOR)
+        event_img = cv2.imread(event_path, cv2.IMREAD_COLOR)
+
+        if img is None or event_img is None:
+            raise IOError("Failed to load image or event image.")
+
+        # Convert to float32 and normalize to [0,1]
+        img = img.astype(np.float32) / 255.0
+        event_img = event_img.astype(np.float32) / 255.0
+
+        # Add noise
+        img_noisy = self.add_noise(img)
+        event_noisy = self.add_noise(event_img)
+
+        # Concatenate (channel-wise or as per model requirement)
+        # The original model expects a combined input: 
+        # x[:, :self.channels_in_per_patch, :, :] as target patch
+        # x[:, self.channels_in_per_patch:, :, :] as reference patch
+        # Assuming single-channel model input in the original code:
+        # If multi-channel needed, adjust accordingly.
+        
+        # Convert from HWC -> CHW
+        img_noisy = np.transpose(img_noisy, (2, 0, 1))
+        event_noisy = np.transpose(event_noisy, (2, 0, 1))
+
+        # Stack both: [channels_in_target + channels_in_ref, H, W]
+        x = np.concatenate([img_noisy, event_noisy], axis=0)
+
+        if self.transform:
+            x = self.transform(x)
+        
+        return torch.from_numpy(x).float()
