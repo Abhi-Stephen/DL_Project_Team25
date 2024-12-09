@@ -23,6 +23,7 @@ class L1Truncated(nn.Module):
         loss = self.L1(y, y_hat).sum(1)
         loss *= self.mask
         return loss, self.mask
+        return torch.mean(torch.abs(pred - target))
 
 
 class ReprojectionError:
